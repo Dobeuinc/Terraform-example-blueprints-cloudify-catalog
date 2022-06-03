@@ -1,0 +1,112 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - https://cloudify.co/spec/cloudify/6.3.0/types.yaml
+  - plugin:cloudify-vcloud-plugin
+
+inputs:
+  gateway:
+    type: string
+    default: Edge
+    description: Name of the gateway
+    display_label: Gateway
+
+  catalog:
+    type: string
+    default: defaultcatalogue
+    description: Name of the catalog
+    display_label: Catalog
+
+  template:
+    type: string
+    default: Centos7-GenericCloud
+    description: Name of the VM template
+    display_label: Template
+
+  cpus:
+    type: string
+    default: 1
+    description: Number of virutal CPUs allocated to the VM
+    display_label: CPUs
+
+  memory:
+    type: string
+    default: 1024
+    description: Number of RAM megabytes allocated to the VM
+    display_label: Memory
+
+  network_cidr:
+    type: string
+    default: 172.16.168.0/24
+    description: Connected network address in CIDR format
+    display_label: Network CIDR
+
+  vm_ip:
+    type: string
+    default: 172.16.168.201
+    description: IP address assigned to the VM, if the DHCP is not in use
+    display_label: VM IP
+
+dsl_definitions:
+  client_config: &client_config
+    uri: { get_secret: vcloud_uri }
+    org: { get_secret: vcloud_org }
+    vdc: { get_secret: vcloud_vdc }
+    user: { get_secret: vcloud_user }
+    password: { get_secret: vcloud_password }
+    verify_ssl_certs: false
+
+node_templates:
+  vm:
+    type: cloudify.nodes.vcloud.VM
+    properties:
+      client_config: *client_config
+      resource_config:
+        catalog: { get_input: catalog }
+        template: { get_input: template }
+        ip_allocation_mode: manual
+        deploy: false
+        power_on: false
+        cpu: { get_input: cpus }
+        memomry: { get_input: memory }
+        accept_all_eulas: true
+        hostname: cloudifyvm
+        ip_address: { get_input: vm_ip }
+      agent_config:
+        install_method: none
+    relationships:
+      - type: cloudify.relationships.vcloud.vm_connected_to_network
+        target: routed_network
+      - type: cloudify.relationships.vcloud.vm_contained_in_vapp
+        target: vapp
+
+  vapp:
+    type: cloudify.nodes.vcloud.VApp
+    properties:
+      client_config: *client_config
+      resource_config:
+        description: test description
+        fence_mode: natRouted
+        accept_all_eulas: true
+    relationships:
+      - type: cloudify.relationships.vcloud.vapp_connected_to_network
+        target: routed_network
+
+  routed_network:
+    type: cloudify.nodes.vcloud.RoutedVDCNetwork
+    properties:
+      client_config: *client_config
+      resource_config:
+        gateway_name: { get_attribute: [ gateway, resource_id ] }
+        network_cidr: { get_input: network_cidr }
+        description: test routed network
+    relationships:
+      - type: cloudify.relationships.vcloud.network_connected_to_gateway
+        target: gateway
+
+  gateway:
+    type: cloudify.nodes.vcloud.Gateway
+    properties:
+      client_config: *client_config
+      resource_id: { get_input: gateway }
+
