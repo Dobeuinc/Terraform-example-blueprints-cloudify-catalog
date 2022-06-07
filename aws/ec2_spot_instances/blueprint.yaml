@@ -34,21 +34,19 @@ inputs:
         - c
 
   availability_zone:
-    description: Availability Zone, combination of region and availability zone suffix
+    display_label: Avability Zone
     type: string
     description: The availability zone in the AWS Region.
     default: { concat: [ { get_input: aws_region_name }, { get_input: availability_zone_suffix } ] }
     hidden: true
 
   ami_owner_filter:
-    description: AMI Owner Filter
     display_label: AMi Owner Filter
     type: string
     description: The AWS AMI owner number.
     default: '057448758665'
 
   ami_name_filter:
-    description: AMi Name Filter
     display_label: AMi Name Filter
     type: string
     description: The name of the AWS AMI in the AWS region.
